@@ -67,20 +67,20 @@ def futex_wake(uaddr):
 atomics = ctypes.CDLL(str(Path(__file__).resolve().with_name("atomics.so")))
 WordPtr = ctypes.POINTER(ctypes.c_uint32)
 
-atomics.atomic_test_and_set_lock.argtypes = [WordPtr]
-atomics.atomic_test_and_set_lock.restype = ctypes.c_uint32
+atomics.test_and_set_lock.argtypes = [WordPtr]
+atomics.test_and_set_lock.restype = ctypes.c_uint32
 
-atomics.atomic_clear_lock.argtypes = [WordPtr]
-atomics.atomic_clear_lock.restype = ctypes.c_uint32
+atomics.clear_lock.argtypes = [WordPtr]
+atomics.clear_lock.restype = ctypes.c_uint32
 
-atomics.atomic_increment.argtypes = [WordPtr]
-atomics.atomic_increment.restype = None  # C void
+atomics.increment.argtypes = [WordPtr]
+atomics.increment.restype = None  # C void
 
-atomics.atomic_decrement.argtypes = [WordPtr]
-atomics.atomic_decrement.restype = None
+atomics.decrement.argtypes = [WordPtr]
+atomics.decrement.restype = None
 
-atomics.atomic_load_word.argtypes = [WordPtr]
-atomics.atomic_load_word.restype = ctypes.c_uint32
+atomics.load_word.argtypes = [WordPtr]
+atomics.load_word.restype = ctypes.c_uint32
 
 class Mutex:
     def __init__(self):
@@ -91,16 +91,16 @@ class Mutex:
 
     def lock(self):
         # fast path, we got the mutex
-        if atomics.atomic_test_and_set_lock(self._word) == 0:
+        if atomics.test_and_set_lock(self._word) == 0:
             return
         
-        atomics.atomic_increment(self._word)
+        atomics.increment(self._word)
         while True:
-            if atomics.atomic_test_and_set_lock(self._word) == 0:
-                atomics.atomic_decrement(self._word)
+            if atomics.test_and_set_lock(self._word) == 0:
+                atomics.decrement(self._word)
                 return
 
-            v = atomics.atomic_load_word(self._word)
+            v = atomics.load_word(self._word)
             if v & (1 << 31) == 0:
                 # unlocked (high bit is unset)
                 continue
@@ -108,7 +108,7 @@ class Mutex:
 
     
     def release(self):
-        if atomics.atomic_clear_lock(self._word) == 0:
+        if atomics.clear_lock(self._word) == 0:
             # if result is 0, it means there are not other
             # waiting threads
             return
