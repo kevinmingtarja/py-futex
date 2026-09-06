@@ -106,6 +106,8 @@ class Mutex:
                 continue
             futex_wait(self._mutex, v)
 
+    def __enter__(self):
+        self.lock()
     
     def release(self):
         if atomics.clear_lock(self._word) == 0:
@@ -114,3 +116,5 @@ class Mutex:
             return
         futex_wake(self._mutex)
 
+    def __exit__(self, t, v, tb):
+        self.release()

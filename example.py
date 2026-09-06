@@ -12,14 +12,11 @@ def main():
     def increment():
         nonlocal counter
         for _ in range(iterations):
-            mutex.lock()
-            try:
+            with mutex:
                 value = counter
                 # Yield while holding the lock so the other thread can contend.
                 time.sleep(0.001)
                 counter = value + 1
-            finally:
-                mutex.release()
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         futures = [pool.submit(increment) for _ in range(2)]
