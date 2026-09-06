@@ -5,6 +5,8 @@ atomic operations written in C. Requires Linux x86-64. Mostly handwritten, with 
 
 Inspired by section 28.15 of https://pages.cs.wisc.edu/~remzi/OSTEP/threads-locks.pdf.
 
+For a brief overview of futex: https://eli.thegreenplace.net/2018/basics-of-futexes.
+
 ## Testing
 
 ```sh
