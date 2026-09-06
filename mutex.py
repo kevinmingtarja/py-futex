@@ -1,4 +1,5 @@
 import ctypes
+import errno
 from pathlib import Path
 
 # syscall number for x86_64, varies by architecture
@@ -16,9 +17,6 @@ FUTEX_PRIVATE_FLAG = 0x0080
 FUTEX_WAIT_PRIVATE = FUTEX_WAIT | FUTEX_PRIVATE_FLAG
 FUTEX_WAKE_PRIVATE = FUTEX_WAKE | FUTEX_PRIVATE_FLAG
 
-
-EAGAIN = 11
-
 libc = ctypes.CDLL(None, use_errno=True)
 
 def futex_wait(uaddr, val):
@@ -35,7 +33,8 @@ def futex_wait(uaddr, val):
     res = libc.syscall(SYS_futex, ctypes.byref(uaddr), FUTEX_WAIT, val, None, None, 0)
     if res == -1:
         err = ctypes.get_errno()
-        if err != EAGAIN:
+        # EINTR means a signal interrupted the wait; let the lock loop retry.
+        if err not in (errno.EAGAIN, errno.EINTR):
             raise OSError(err, "futex wait failed")
         # If the futex value does not match val, then the call
         # fails immediately with EAGAIN, in which case
@@ -95,16 +94,18 @@ class Mutex:
             return
         
         atomics.increment(self._word)
-        while True:
-            if atomics.test_and_set_lock(self._word) == 0:
-                atomics.decrement(self._word)
-                return
+        try:
+            while True:
+                if atomics.test_and_set_lock(self._word) == 0:
+                    return
 
-            v = atomics.load_word(self._word)
-            if v & (1 << 31) == 0:
-                # unlocked (high bit is unset)
-                continue
-            futex_wait(self._mutex, v)
+                v = atomics.load_word(self._word)
+                if v & (1 << 31) == 0:
+                    # unlocked (high bit is unset)
+                    continue
+                futex_wait(self._mutex, v)
+        finally:
+            atomics.decrement(self._word)
 
     def __enter__(self):
         self.lock()
